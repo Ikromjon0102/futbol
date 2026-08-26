@@ -1,0 +1,22 @@
+{
+  "short_name": "Futbol",
+  "name": "Futbol - O'yinlar va Jadvallar",
+  "description": "Otamiz uchun sodda va katta shriftli futbol ilovasi",
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#16a34a",
+  "display": "standalone",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://images.fotmob.com/image_resources/logo/leaguelogo/dark/47.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://images.fotmob.com/image_resources/logo/leaguelogo/dark/47.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+:root {
+  --base-size: 16px;
+  --bg-color: #0b1329;
+  --card-bg: #152238;
+  --card-border: #1e3a5f;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --primary: #10b981;
+  --primary-glow: rgba(16, 185, 129, 0.25);
+  --accent: #f59e0b;
+  --live-red: #ef4444;
+}
+
+[data-font-size="large"] {
+  --base-size: 19px;
+}
+
+[data-font-size="xlarge"] {
+  --base-size: 22px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: var(--base-size);
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.5;
+  padding-bottom: 90px;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glass & Card Styling */
+.glass-header {
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.match-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.match-card:active {
+  transform: scale(0.99);
+}
+
+.live-pulse {
+  animation: pulse-glow 1.8s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.06);
+  }
+}
+
+/* Custom Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* STRICT HORIZONTAL BIG SCORE */
+.score-badge-horizontal {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  font-family: 'SF Pro Display', ui-monospace, monospace;
+  font-weight: 900;
+  letter-spacing: 1px;
+  background: rgba(10, 18, 36, 0.95);
+  border: 1.5px solid #2563eb;
+  padding: 6px 14px;
+  border-radius: 14px;
+  min-width: 95px;
+}
+
+/* Standings Table Clean Style */
+.standings-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+
+.standings-table tr {
+  background: var(--card-bg);
+  border-radius: 12px;
+}
+
+.standings-table td, .standings-table th {
+  padding: 11px 8px;
+}
+
+.standings-table td:first-child {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.standings-table td:last-child {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
