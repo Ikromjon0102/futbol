@@ -124,6 +124,18 @@ async def handle_get_all_upcoming(request):
         })
     return web.json_response({"status": "success", "data": result})
 
+async def handle_sync_live(request):
+    try:
+        from espn_service import sync_espn_matches
+        asyncio.create_task(asyncio.to_thread(sync_espn_matches))
+        return web.json_response({
+            "status": "success",
+            "message": "Jonli ma'lumotlar yangilanmoqda...",
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        return web.json_response({"status": "error", "message": str(e)})
+
 async def handle_index(request):
     public_dir = os.path.join(os.path.dirname(__file__), 'public')
     index_path = os.path.join(public_dir, 'index.html')
@@ -150,6 +162,8 @@ def create_app():
     app.router.add_get('/api/stats/{league_id}', handle_get_stats)
     app.router.add_get('/api/upcoming', handle_get_all_upcoming)
     app.router.add_get('/api/legioners', handle_get_legioners)
+    app.router.add_post('/api/sync/live', handle_sync_live)
+    app.router.add_get('/api/sync/live', handle_sync_live)
 
     # Root route
     app.router.add_get('/', handle_index)

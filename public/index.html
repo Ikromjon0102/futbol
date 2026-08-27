@@ -36,8 +36,17 @@
         </div>
       </div>
 
-      <!-- Actions: Font Resizer & PWA Install -->
+      <!-- Actions: Refresh, Font Resizer & PWA Install -->
       <div class="flex items-center gap-2">
+        
+        <!-- One-Click Live Refresh Button -->
+        <button id="live-refresh-btn" onclick="manualRefresh()" 
+          class="p-2 bg-slate-800/90 hover:bg-emerald-600 active:scale-95 text-emerald-400 hover:text-white rounded-xl border border-slate-700 transition flex items-center gap-1.5 text-xs font-bold shadow-md"
+          title="Ayni vaqt bo'yicha yangilash">
+          <span id="refresh-icon" class="text-base inline-block">🔄</span>
+          <span class="hidden sm:inline">Yangilash</span>
+        </button>
+
         <button id="pwa-install-btn" onclick="installPWA()" 
           class="hidden px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1">
           <span>📥</span>
@@ -93,43 +102,36 @@
 
   </main>
 
-  <!-- ==================== BOTTOM NAVIGATION (5 TABS) ==================== -->
+  <!-- ==================== BOTTOM NAVIGATION (4 TABS) ==================== -->
   <nav class="fixed bottom-0 left-0 right-0 z-50 glass-header border-t border-slate-800/80 px-2 py-2">
-    <div class="max-w-2xl mx-auto grid grid-cols-5 gap-1">
+    <div class="max-w-2xl mx-auto grid grid-cols-4 gap-1">
       
       <!-- 1. O'yinlar -->
       <button id="nav-matches" onclick="setTab('matches')" 
-        class="flex flex-col items-center justify-center py-1 rounded-xl transition text-emerald-400 font-black">
-        <span class="text-lg sm:text-xl">⚽</span>
-        <span class="text-[11px] mt-0.5">O'yinlar</span>
+        class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-emerald-400 font-black">
+        <span class="text-xl">⚽</span>
+        <span class="text-xs mt-0.5">O'yinlar</span>
       </button>
 
       <!-- 2. Turnir Jadvali -->
       <button id="nav-standings" onclick="setTab('standings')" 
-        class="flex flex-col items-center justify-center py-1 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200">
-        <span class="text-lg sm:text-xl">📊</span>
-        <span class="text-[11px] mt-0.5">Jadval</span>
+        class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200">
+        <span class="text-xl">📊</span>
+        <span class="text-xs mt-0.5">Jadval</span>
       </button>
 
       <!-- 3. To'purarlar & Assistlar -->
       <button id="nav-stats" onclick="setTab('stats')" 
-        class="flex flex-col items-center justify-center py-1 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200">
-        <span class="text-lg sm:text-xl">🎯</span>
-        <span class="text-[11px] mt-0.5">To'purarlar</span>
+        class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200">
+        <span class="text-xl">🎯</span>
+        <span class="text-xs mt-0.5">To'purarlar</span>
       </button>
 
-      <!-- 4. Bizning Legionerlar -->
-      <button id="nav-legioners" onclick="setTab('legioners')" 
-        class="flex flex-col items-center justify-center py-1 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200 relative">
-        <span class="text-lg sm:text-xl">🇺🇿</span>
-        <span class="text-[11px] mt-0.5">Legionerlar</span>
-      </button>
-
-      <!-- 5. Sevimlilar -->
+      <!-- 4. Sevimlilar -->
       <button id="nav-favorites" onclick="setTab('favorites')" 
-        class="flex flex-col items-center justify-center py-1 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200">
-        <span class="text-lg sm:text-xl">❤️</span>
-        <span class="text-[11px] mt-0.5">Sevimlilar</span>
+        class="flex flex-col items-center justify-center py-1.5 rounded-xl transition text-slate-400 font-semibold hover:text-slate-200">
+        <span class="text-xl">❤️</span>
+        <span class="text-xs mt-0.5">Sevimlilar</span>
       </button>
 
     </div>

@@ -38,16 +38,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (pwaBtn) pwaBtn.classList.remove('hidden');
   });
 
-  applyFontSize(state.fontSize);
-
   await loadLeagues();
   await switchLeague(1001); // Default O'zbekiston Superligasi
   await loadUpcomingMatches();
 
+  // Periodic favorite notification check (every 30s)
   setInterval(() => {
     checkUpcomingFavoriteMatches();
   }, 30000);
+
+  // Background auto-refresh for live match scores (every 30s)
+  setInterval(() => {
+    if (state.currentTab === 'matches') {
+      loadMatches(state.currentLeagueId, state.currentRound);
+    }
+  }, 30000);
 });
+
+// ==================== MANUAL LIVE REFRESH ====================
+async function manualRefresh() {
+  const icon = document.getElementById('refresh-icon');
+  if (icon) icon.classList.add('animate-spin');
+
+  try {
+    // 1. Trigger background server sync
+    fetch('/api/sync/live', { method: 'POST' }).catch(() => {});
+
+    // 2. Refresh active league view
+    await loadRounds(state.currentLeagueId);
+    if (state.currentTab === 'matches') {
+      await loadMatches(state.currentLeagueId, state.currentRound);
+    } else if (state.currentTab === 'standings') {
+      await loadStandings(state.currentLeagueId);
+    } else if (state.currentTab === 'stats') {
+      await loadStats(state.currentLeagueId);
+    } else if (state.currentTab === 'favorites') {
+      await loadUpcomingMatches();
+      renderFavorites();
+    }
+
+    showNotificationToast("✅ Ayni vaqt bo'yicha ma'lumotlar yangilandi!");
+  } catch (err) {
+    showNotificationToast("🔄 Ma'lumotlar yangilandi");
+  } finally {
+    if (icon) {
+      setTimeout(() => icon.classList.remove('animate-spin'), 600);
+    }
+  }
+}
 
 // ==================== AUDIO SYNTHESIZER ====================
 function playMatchWhistle() {
@@ -756,163 +794,11 @@ function renderStats() {
   `;
 }
 
-// ==================== LEGIONERS VIEW ====================
-function renderLegioners() {
-  const container = document.getElementById('content-area');
-  if (!container) return;
-
-  container.innerHTML = `
-    <div class="space-y-4">
-      <div class="bg-gradient-to-r from-emerald-900/70 to-blue-900/70 p-4 rounded-2xl border border-emerald-700/60 shadow-lg">
-        <h3 class="text-lg font-black text-white flex items-center gap-2">
-          <span>🇺🇿</span>
-          <span>Bizning Legionerlar Markazi</span>
-        </h3>
-        <p class="text-slate-300 text-xs sm:text-sm mt-1">
-          Eldor Shomurodov, Abbosbek Fayzullayev, Husniddin Aliqulov va chet eldagi futbol yulduzlarimiz
-        </p>
-      </div>
-
-      <div class="grid grid-cols-1 gap-4">
-        ${state.legioners.map(p => `
-          <div class="match-card p-5 border-l-4 border-l-emerald-500">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
-              <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl">
-                  ⚽
-                </div>
-                <div>
-                  <h4 class="font-extrabold text-base sm:text-lg text-white">${p.name}</h4>
-                  <p class="text-xs font-semibold text-emerald-400">${p.teamName} • ${p.role}</p>
-                </div>
-              </div>
-              <span class="bg-emerald-950 text-emerald-300 border border-emerald-700/50 text-xs px-2.5 py-1 rounded-full font-bold">
-                ${p.badge || p.leagueName}
-              </span>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-              <!-- Next Match -->
-              <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                <span class="text-xs font-bold text-amber-400 block mb-1">📅 Navbatdagi o'yini:</span>
-                ${p.nextMatch ? `
-                  <div class="text-sm font-bold text-slate-200">
-                    ${p.nextMatch.homeTeam?.name} vs ${p.nextMatch.awayTeam?.name}
-                  </div>
-                  <div class="text-xs text-emerald-400 font-semibold mt-1">
-                    ⏰ Toshkent vaqti: ${p.nextMatch.tashkent?.displayDay || ''} ${p.nextMatch.tashkent?.time || ''}
-                  </div>
-                ` : `
-                  <div class="text-xs text-slate-400 italic">2-tur taqvimi tayyorlanmoqda</div>
-                `}
-              </div>
-
-              <!-- Last Match -->
-              <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                <span class="text-xs font-bold text-slate-400 block mb-1">🏁 Oxirgi natija:</span>
-                ${p.lastMatch ? `
-                  <div class="text-sm font-bold text-slate-200">
-                    ${p.lastMatch.homeTeam?.name} ${p.lastMatch.scoreStr ? p.lastMatch.scoreStr.replace('-', ':') : ''} ${p.lastMatch.awayTeam?.name}
-                  </div>
-                  <div class="text-xs text-slate-400 mt-1">
-                    ${p.lastMatch.tashkent?.date || ''} kuni bo'lib o'tgan
-                  </div>
-                ` : `
-                  <div class="text-xs text-slate-400 italic">Ma'lumot yo'q</div>
-                `}
-              </div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
-
-// ==================== FAVORITES VIEW ====================
-function toggleFavorite(teamId, teamName) {
-  const index = state.favorites.indexOf(teamId);
-  if (index > -1) {
-    state.favorites.splice(index, 1);
-    showNotificationToast(`🤍 ${teamName} sevimlilardan olib tashlandi.`);
-  } else {
-    state.favorites.push(teamId);
-    requestNotificationPermission();
-    showNotificationToast(`❤️ ${teamName} sevimlilarga qo'shildi!\nO'yin boshlanishidan 10 daqiqa oldin xabar beriladi.`);
-  }
-  localStorage.setItem('futbol_favorites', JSON.stringify(state.favorites));
-
-  if (state.currentTab === 'matches') renderMatches();
-  else if (state.currentTab === 'standings') renderStandings();
-  else if (state.currentTab === 'favorites') renderFavorites();
-}
-
-function renderFavorites() {
-  const container = document.getElementById('content-area');
-  if (!container) return;
-
-  const favMatches = state.upcomingMatches.filter(
-    m => state.favorites.includes(m.homeTeam?.id) || state.favorites.includes(m.awayTeam?.id)
-  );
-
-  container.innerHTML = `
-    <div class="space-y-4">
-      <div class="bg-slate-900/90 p-4 rounded-2xl border border-emerald-600/50 shadow-xl flex items-center justify-between">
-        <div>
-          <h3 class="font-extrabold text-white text-base sm:text-lg flex items-center gap-2">
-            <span>🔔</span>
-            <span>O'yin oldi xabarnomasi</span>
-          </h3>
-          <p class="text-slate-300 text-xs mt-1">
-            Sevimli jamoangiz o'yini boshlanishidan 5-10 daqiqa oldin ovozli xabar beriladi.
-          </p>
-        </div>
-        <button onclick="testNotification()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md whitespace-nowrap">
-          Sinab ko'rish
-        </button>
-      </div>
-
-      ${state.favorites.length === 0 ? `
-        <div class="text-center py-16 px-4 bg-slate-900/60 rounded-2xl border border-slate-800">
-          <div class="text-5xl mb-3">❤️</div>
-          <h3 class="text-xl font-bold text-slate-200">Sevimli jamoalaringiz yo'q</h3>
-          <p class="text-slate-400 mt-2 text-sm max-w-sm mx-auto">
-            O'yinlar yoki turnir jadvalidagi jamoa yonidagi yurakcha (🤍) belgisini bosing (masalan Nasaf, Paxtakor, Liverpool).
-          </p>
-        </div>
-      ` : `
-        <div class="space-y-3">
-          <h4 class="text-sm font-bold text-slate-300 px-1">📅 Sevimli jamoalaringizning navbatdagi o'yinlari:</h4>
-          ${favMatches.length > 0 ? favMatches.map(m => `
-            <div class="match-card p-4 border-l-4 border-l-amber-500">
-              <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
-                <span class="font-bold text-amber-400">🔔 Xabarnoma faol</span>
-                <span class="bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded-full font-bold border border-emerald-800">
-                  ${m.roundName || 'Navbatdagi tur'}
-                </span>
-              </div>
-              <div class="text-base font-extrabold text-white flex items-center justify-between py-1">
-                <span>${m.homeTeam.name}</span>
-                <span class="text-amber-400 text-sm font-bold bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700">VS</span>
-                <span>${m.awayTeam.name}</span>
-              </div>
-              <div class="mt-2 text-xs text-emerald-400 font-bold flex items-center justify-between">
-                <span>⏰ Toshkent vaqti: ${m.tashkentDate} ${m.tashkentTime}</span>
-                <span class="text-slate-400">(${m.tashkentDisplay})</span>
-              </div>
-            </div>
-          `).join('') : '<p class="text-center text-slate-400 py-8">Navbatdagi o\'yinlar tez orada e\'lon qilinadi.</p>'}
-        </div>
-      `}
-    </div>
-  `;
-}
-
 // ==================== TABS NAVIGATION ====================
 function setTab(tabName) {
   state.currentTab = tabName;
 
-  ['matches', 'standings', 'stats', 'legioners', 'favorites'].forEach(t => {
+  ['matches', 'standings', 'stats', 'favorites'].forEach(t => {
     const btn = document.getElementById(`nav-${t}`);
     if (btn) {
       if (t === tabName) {
@@ -941,10 +827,6 @@ function setTab(tabName) {
     if (leagueSelector) leagueSelector.classList.remove('hidden');
     if (roundControls) roundControls.classList.add('hidden');
     loadStats(state.currentLeagueId);
-  } else if (tabName === 'legioners') {
-    if (leagueSelector) leagueSelector.classList.add('hidden');
-    if (roundControls) roundControls.classList.add('hidden');
-    loadLegioners();
   } else if (tabName === 'favorites') {
     if (leagueSelector) leagueSelector.classList.add('hidden');
     if (roundControls) roundControls.classList.add('hidden');
