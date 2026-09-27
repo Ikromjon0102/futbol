@@ -9,13 +9,67 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'futbol.db')
 TASHKENT_TZ = pytz.timezone('Asia/Tashkent')
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
+
+def display_day(ts, fallback=""):
+    if not ts:
+        return fallback or "Tez kunda"
+    match_date = datetime.fromtimestamp(ts, TASHKENT_TZ).date()
+    diff = (match_date - datetime.now(TASHKENT_TZ).date()).days
+    if diff == 0:
+        return "Bugun"
+    if diff == 1:
+        return "Ertaga"
+    if diff == -1:
+        return "Kecha"
+    return match_date.strftime("%d.%m")
+
+def row_to_match(r):
+    events = []
+    if r["events_json"]:
+        try:
+            events = json.loads(r["events_json"])
+        except Exception:
+            pass
+
+    return {
+        "id": r["id"],
+        "leagueId": r["league_id"],
+        "round": r["round_num"],
+        "roundName": r["round_name"],
+        "homeTeam": {
+            "id": r["home_id"],
+            "name": r["home_name"],
+            "score": r["home_score"],
+            "badge": r["home_badge"]
+        },
+        "awayTeam": {
+            "id": r["away_id"],
+            "name": r["away_name"],
+            "score": r["away_score"],
+            "badge": r["away_badge"]
+        },
+        "isLive": bool(r["is_live"]),
+        "isFinished": bool(r["is_finished"]),
+        "scoreStr": r["score_str"],
+        "liveTime": r["live_time"],
+        "stadium": r["stadium"] or "Markaziy stadion",
+        "referee": r["referee"] or "Bosh hakam",
+        "events": events,
+        "tashkent": {
+            "date": r["tashkent_date"],
+            "time": r["tashkent_time"],
+            "displayDay": display_day(r["tashkent_timestamp"], r["tashkent_display"]),
+            "timestamp": r["tashkent_timestamp"]
+        }
+    }
 
 def init_db(force=False):
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute('PRAGMA journal_mode=WAL')
 
     if force:
         cursor.execute('DROP TABLE IF EXISTS leagues')
@@ -138,48 +192,20 @@ def get_matches_from_db(league_id, round_num=None):
     
     rows = cursor.fetchall()
     conn.close()
+    return [row_to_match(r) for r in rows]
 
-    result = []
-    for r in rows:
-        events = []
-        if r["events_json"]:
-            try:
-                events = json.loads(r["events_json"])
-            except Exception:
-                pass
-
-        result.append({
-            "id": r["id"],
-            "leagueId": r["league_id"],
-            "round": r["round_num"],
-            "roundName": r["round_name"],
-            "homeTeam": {
-                "id": r["home_id"],
-                "name": r["home_name"],
-                "score": r["home_score"],
-                "badge": r["home_badge"]
-            },
-            "awayTeam": {
-                "id": r["away_id"],
-                "name": r["away_name"],
-                "score": r["away_score"],
-                "badge": r["away_badge"]
-            },
-            "isLive": bool(r["is_live"]),
-            "isFinished": bool(r["is_finished"]),
-            "scoreStr": r["score_str"],
-            "liveTime": r["live_time"],
-            "stadium": r["stadium"] or "Markaziy stadion",
-            "referee": r["referee"] or "Bosh hakam",
-            "events": events,
-            "tashkent": {
-                "date": r["tashkent_date"],
-                "time": r["tashkent_time"],
-                "displayDay": r["tashkent_display"],
-                "timestamp": r["tashkent_timestamp"]
-            }
-        })
-    return result
+def get_upcoming_matches():
+    """Live matches plus everything not yet played (ignores long-postponed games)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM matches
+        WHERE is_live = 1 OR (is_finished = 0 AND tashkent_timestamp >= ?)
+        ORDER BY tashkent_timestamp ASC
+    ''', (time.time() - 3 * 3600,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [row_to_match(r) for r in rows]
 
 def get_rounds_summary(league_id):
     conn = get_db_connection()
@@ -188,27 +214,27 @@ def get_rounds_summary(league_id):
         SELECT round_num, round_name, 
                COUNT(*) as total_matches,
                SUM(is_finished) as finished_matches,
-               SUM(is_live) as live_matches
-        FROM matches 
-        WHERE league_id = ? 
-        GROUP BY round_num 
+               SUM(is_live) as live_matches,
+               SUM(CASE WHEN is_finished = 0 AND tashkent_timestamp >= ? THEN 1 ELSE 0 END) as pending_matches
+        FROM matches
+        WHERE league_id = ?
+        GROUP BY round_num
         ORDER BY round_num ASC
-    ''', (league_id,))
+    ''', (time.time() - 3 * 3600, league_id))
     rows = cursor.fetchall()
     conn.close()
 
-    rounds = []
-    current_round = rows[0]["round_num"] if rows else 1
+    # Prefer the round with a live game, then the first one with games still to play.
+    live_round = next((r["round_num"] for r in rows if r["live_matches"]), None)
+    pending_round = next((r["round_num"] for r in rows if r["pending_matches"]), None)
+    current_round = live_round or pending_round or (rows[-1]["round_num"] if rows else 1)
 
+    rounds = []
     for r in rows:
         r_num = r["round_num"]
         total = r["total_matches"]
         finished = r["finished_matches"] or 0
         live = r["live_matches"] or 0
-        
-        # Determine active round: prefer round with live or uncompleted games
-        if live > 0 or (finished < total):
-            current_round = r_num
 
         rounds.append({
             "round": r_num,
@@ -284,28 +310,7 @@ def get_team_fixtures(team_name):
     upcoming = None
 
     for r in rows:
-        events = []
-        if r["events_json"]:
-            try:
-                events = json.loads(r["events_json"])
-            except Exception:
-                pass
-
-        item = {
-            "id": r["id"],
-            "roundName": r["round_name"],
-            "homeTeam": {"name": r["home_name"], "badge": r["home_badge"], "score": r["home_score"]},
-            "awayTeam": {"name": r["away_name"], "badge": r["away_badge"], "score": r["away_score"]},
-            "isFinished": bool(r["is_finished"]),
-            "scoreStr": r["score_str"],
-            "events": events,
-            "tashkent": {
-                "date": r["tashkent_date"],
-                "time": r["tashkent_time"],
-                "displayDay": r["tashkent_display"],
-                "timestamp": r["tashkent_timestamp"]
-            }
-        }
+        item = row_to_match(r)
         if r["is_finished"]:
             completed = item
         elif not upcoming:

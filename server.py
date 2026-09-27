@@ -7,12 +7,13 @@ from datetime import datetime
 import pytz
 import aiohttp
 from aiohttp import web
-from config import RAPIDAPI_KEY, RAPIDAPI_HOST, PORT, SUPPORTED_LEAGUES, LEGIONER_PLAYERS
+from config import PORT, LEGIONER_PLAYERS, LIVE_SYNC_INTERVAL, STANDINGS_SYNC_INTERVAL
 from database import (
     init_db, get_leagues_from_db, get_matches_from_db, get_rounds_summary,
     get_standings_from_db, get_player_stats_from_db, get_team_fixtures,
-    get_db_connection
+    get_upcoming_matches
 )
+import espn_service
 
 if sys.platform == 'win32':
     try:
@@ -99,42 +100,39 @@ async def handle_get_legioners(request):
     })
 
 async def handle_get_all_upcoming(request):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT * FROM matches 
-        WHERE is_finished = 0 
-        ORDER BY tashkent_timestamp ASC
-    ''')
-    rows = cursor.fetchall()
-    conn.close()
+    return web.json_response({"status": "success", "data": get_upcoming_matches()})
 
-    result = []
-    for r in rows:
-        result.append({
-            "id": r["id"],
-            "leagueId": r["league_id"],
-            "roundName": r["round_name"],
-            "homeTeam": {"id": r["home_id"], "name": r["home_name"], "badge": r["home_badge"]},
-            "awayTeam": {"id": r["away_id"], "name": r["away_name"], "badge": r["away_badge"]},
-            "tashkentTimestamp": r["tashkent_timestamp"],
-            "tashkentDate": r["tashkent_date"],
-            "tashkentTime": r["tashkent_time"],
-            "tashkentDisplay": r["tashkent_display"]
-        })
-    return web.json_response({"status": "success", "data": result})
+async def run_sync(app, full=False, days_back=espn_service.SYNC_DAYS_BACK):
+    async with app['sync_lock']:
+        await asyncio.to_thread(espn_service.sync_matches, days_back)
+        if full:
+            await asyncio.to_thread(espn_service.sync_standings)
+            await asyncio.to_thread(espn_service.recompute_scorers)
+        app['last_sync'] = time.time()
 
 async def handle_sync_live(request):
     try:
-        from espn_service import sync_espn_matches
-        asyncio.create_task(asyncio.to_thread(sync_espn_matches))
+        await run_sync(request.app)
         return web.json_response({
             "status": "success",
-            "message": "Jonli ma'lumotlar yangilanmoqda...",
-            "timestamp": time.time()
+            "message": "Jonli ma'lumotlar yangilandi",
+            "timestamp": request.app['last_sync']
         })
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)})
+
+async def live_sync_loop(app):
+    last_full = 0
+    while True:
+        try:
+            full = time.time() - last_full >= STANDINGS_SYNC_INTERVAL
+            # First pass backfills 60 days so stale rows from an old DB get their final scores.
+            await run_sync(app, full=full, days_back=60 if last_full == 0 else espn_service.SYNC_DAYS_BACK)
+            if full:
+                last_full = time.time()
+        except Exception as e:
+            print("❌ Avtomatik sinxronlash xatosi:", e)
+        await asyncio.sleep(LIVE_SYNC_INTERVAL)
 
 async def handle_index(request):
     public_dir = os.path.join(os.path.dirname(__file__), 'public')
@@ -145,8 +143,15 @@ async def handle_index(request):
 
 async def on_startup(app):
     app['http_session'] = aiohttp.ClientSession()
+    app['sync_lock'] = asyncio.Lock()
+    app['last_sync'] = 0
+    if LIVE_SYNC_INTERVAL > 0:
+        app['sync_task'] = asyncio.create_task(live_sync_loop(app))
 
 async def on_cleanup(app):
+    task = app.get('sync_task')
+    if task:
+        task.cancel()
     await app['http_session'].close()
 
 def create_app():

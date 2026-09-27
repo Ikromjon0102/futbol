@@ -4,6 +4,10 @@ RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "122ec983ecmshc311b9bfd74e54ap1251
 RAPIDAPI_HOST = "free-api-live-football-data.p.rapidapi.com"
 PORT = int(os.environ.get("PORT", 8000))
 
+# ESPN'dan jonli natijalarni necha soniyada bir yangilash (0 = o'chirilgan)
+LIVE_SYNC_INTERVAL = int(os.environ.get("LIVE_SYNC_INTERVAL", 60))
+STANDINGS_SYNC_INTERVAL = int(os.environ.get("STANDINGS_SYNC_INTERVAL", 900))
+
 # Mashhur va otamiz qiziqadigan ligalar
 SUPPORTED_LEAGUES = [
     {

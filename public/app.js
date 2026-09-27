@@ -61,8 +61,7 @@ async function manualRefresh() {
   if (icon) icon.classList.add('animate-spin');
 
   try {
-    // 1. Trigger background server sync
-    fetch('/api/sync/live', { method: 'POST' }).catch(() => {});
+    await fetch('/api/sync/live', { method: 'POST' }).catch(() => {});
 
     // 2. Refresh active league view
     await loadRounds(state.currentLeagueId);
@@ -185,7 +184,7 @@ function checkUpcomingFavoriteMatches() {
     const isFavAway = state.favorites.includes(m.awayTeam?.id);
 
     if (isFavHome || isFavAway) {
-      const matchTs = m.tashkentTimestamp;
+      const matchTs = m.tashkent?.timestamp;
       const diffSec = matchTs - nowTs;
       const diffMinutes = Math.floor(diffSec / 60);
 
@@ -198,7 +197,7 @@ function checkUpcomingFavoriteMatches() {
           const favTeam = isFavHome ? m.homeTeam.name : m.awayTeam.name;
           sendMatchNotification(
             `⚽ ${favTeam} o'yini boshlanmoqda! (${diffMinutes} daqiqa qoldi)`,
-            `${m.homeTeam.name} vs ${m.awayTeam.name} • Toshkent vaqti: ${m.tashkentTime}`
+            `${m.homeTeam.name} vs ${m.awayTeam.name} • Toshkent vaqti: ${m.tashkent?.time}`
           );
         }
       }
@@ -405,7 +404,7 @@ function renderRoundControls() {
           hasPrev ? 'bg-slate-800 text-slate-100 hover:bg-slate-700 active:scale-95 border border-slate-700' : 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800/50'
         }" ${!hasPrev ? 'disabled' : ''}>
         <span>◀</span>
-        <span class="hidden sm:inline">Oldingi tur</span>
+        <span class="hidden sm:inline">Oldingi</span>
       </button>
 
       <div class="flex items-center gap-2">
@@ -413,7 +412,7 @@ function renderRoundControls() {
           class="bg-slate-800 border border-emerald-500 text-emerald-400 font-extrabold text-sm sm:text-base px-3 py-2 rounded-xl text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
           ${state.roundsList.map(r => `
             <option value="${r.round}" ${r.round === state.currentRound ? 'selected' : ''}>
-              ${r.round}-tur ${r.finished === r.total ? '(Natijalar)' : '(Navbatdagi)'}
+              ${r.name || `${r.round}-tur`} ${r.live > 0 ? '(JONLI)' : r.finished === r.total ? '(Natijalar)' : '(Navbatdagi)'}
             </option>
           `).join('')}
         </select>
@@ -423,7 +422,7 @@ function renderRoundControls() {
         class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition ${
           hasNext ? 'bg-slate-800 text-slate-100 hover:bg-slate-700 active:scale-95 border border-slate-700' : 'bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800/50'
         }" ${!hasNext ? 'disabled' : ''}>
-        <span class="hidden sm:inline">Keyingi tur</span>
+        <span class="hidden sm:inline">Keyingi</span>
         <span>▶</span>
       </button>
     </div>
@@ -438,7 +437,7 @@ function renderMatches() {
     container.innerHTML = `
       <div class="text-center py-16 px-4 bg-slate-900/60 rounded-2xl border border-slate-800">
         <div class="text-5xl mb-3">⚽</div>
-        <h3 class="text-xl font-bold text-slate-200">${state.currentRound}-turda o'yinlar topilmadi</h3>
+        <h3 class="text-xl font-bold text-slate-200">Bu davrda o'yinlar topilmadi</h3>
         <p class="text-slate-400 mt-1 text-sm">Boshqa turni tanlang</p>
       </div>
     `;
@@ -832,6 +831,58 @@ function setTab(tabName) {
     if (roundControls) roundControls.classList.add('hidden');
     loadUpcomingMatches().then(() => renderFavorites());
   }
+}
+
+// ==================== FAVORITES ====================
+function toggleFavorite(teamId, teamName) {
+  const idx = state.favorites.indexOf(teamId);
+  if (idx === -1) {
+    state.favorites.push(teamId);
+    showNotificationToast(`❤️ ${teamName} sevimlilarga qo'shildi`);
+  } else {
+    state.favorites.splice(idx, 1);
+    showNotificationToast(`🤍 ${teamName} sevimlilardan olib tashlandi`);
+  }
+  localStorage.setItem('futbol_favorites', JSON.stringify(state.favorites));
+
+  if (state.currentTab === 'matches') renderMatches();
+  else if (state.currentTab === 'standings') renderStandings();
+  else if (state.currentTab === 'favorites') renderFavorites();
+}
+
+function renderFavorites() {
+  const container = document.getElementById('content-area');
+  if (!container) return;
+
+  if (state.favorites.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-16 px-4 bg-slate-900/60 rounded-2xl border border-slate-800">
+        <div class="text-5xl mb-3">🤍</div>
+        <h3 class="text-xl font-bold text-slate-200">Sevimli jamoa hali tanlanmagan</h3>
+        <p class="text-slate-400 mt-1 text-sm">O'yinlar yoki Jadval bo'limida jamoa yonidagi 🤍 belgisini bosing</p>
+      </div>
+    `;
+    return;
+  }
+
+  const favMatches = state.upcomingMatches.filter(m =>
+    state.favorites.includes(m.homeTeam?.id) || state.favorites.includes(m.awayTeam?.id)
+  );
+
+  const notifButton = state.notificationsEnabled ? '' : `
+    <button onclick="requestNotificationPermission()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-lg">
+      🔔 O'yin boshlanishidan oldin xabar berilsin
+    </button>
+  `;
+
+  container.innerHTML = `
+    <div class="space-y-3.5">
+      ${notifButton}
+      ${favMatches.length > 0
+        ? favMatches.map(m => renderMatchCard(m)).join('')
+        : `<p class="text-center text-slate-400 py-8 bg-slate-900/60 rounded-2xl border border-slate-800">Sevimli jamoalaringizning yaqin o'yinlari topilmadi</p>`}
+    </div>
+  `;
 }
 
 // ==================== HELPERS ====================
