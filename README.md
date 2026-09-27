@@ -43,6 +43,17 @@ Brauzerda oching: **http://localhost:8000**
 
 ---
 
+### 2. Jonli natijalar qayerdan keladi:
+* **Yevropa ligalari va UCL** — ESPN'ning ochiq API'si. Kalit kerak emas, server har daqiqada o'zi yangilaydi.
+* **O'zbekiston Superligasi** — [API-Football](https://dashboard.api-football.com/register) (bepul tarif: kuniga 100 ta so'rov).
+  Ro'yxatdan o'tib olingan kalitni serverda muhit o'zgaruvchisi sifatida bering:
+  ```bash
+  API_FOOTBALL_KEY=kalitingiz python server.py
+  ```
+  Kalit berilmasa, Superliga uchun bazadagi eski ma'lumot ko'rsatiladi. Server logida `❌ API-Football xatosi` chiqsa, xabar matnida sababi yoziladi (masalan, tarif bu mavsumga ruxsat bermasa).
+
+---
+
 ## 📱 Otangizning Telefoniga O'rnatish (PWA):
 
 1. Telefon brauzerida (Chrome yoki Safari) ilova manzilini oching.

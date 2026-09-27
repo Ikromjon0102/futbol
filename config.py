@@ -1,12 +1,20 @@
 import os
 
-RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "122ec983ecmshc311b9bfd74e54ap125147jsn64f37f88a8dd")
+RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
 RAPIDAPI_HOST = "free-api-live-football-data.p.rapidapi.com"
 PORT = int(os.environ.get("PORT", 8000))
 
 # ESPN'dan jonli natijalarni necha soniyada bir yangilash (0 = o'chirilgan)
 LIVE_SYNC_INTERVAL = int(os.environ.get("LIVE_SYNC_INTERVAL", 60))
 STANDINGS_SYNC_INTERVAL = int(os.environ.get("STANDINGS_SYNC_INTERVAL", 900))
+
+# O'zbekiston Superligasi uchun API-Football (https://dashboard.api-football.com) bepul kaliti
+API_FOOTBALL_KEY = os.environ.get("API_FOOTBALL_KEY", "")
+API_FOOTBALL_UZ_LEAGUE_ID = int(os.environ.get("API_FOOTBALL_UZ_LEAGUE_ID", 369))
+API_FOOTBALL_UZ_SEASON = int(os.environ.get("API_FOOTBALL_UZ_SEASON", 0))  # 0 = joriy yil
+UZ_LIVE_INTERVAL = int(os.environ.get("UZ_LIVE_INTERVAL", 600))
+UZ_IDLE_INTERVAL = int(os.environ.get("UZ_IDLE_INTERVAL", 3 * 3600))
+UZ_STATS_INTERVAL = int(os.environ.get("UZ_STATS_INTERVAL", 6 * 3600))
 
 # Mashhur va otamiz qiziqadigan ligalar
 SUPPORTED_LEAGUES = [

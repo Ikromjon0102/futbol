@@ -6,7 +6,7 @@ dotenv.config();
 
 const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "122ec983ecmshc311b9bfd74e54ap125147jsn64f37f88a8dd";
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
 const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST || "free-api-live-football-data.p.rapidapi.com";
 
 function fetchFromRapidApi(path) {

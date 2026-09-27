@@ -14,6 +14,7 @@ from database import (
     get_upcoming_matches
 )
 import espn_service
+import uzb_service
 
 if sys.platform == 'win32':
     try:
@@ -108,6 +109,7 @@ async def run_sync(app, full=False, days_back=espn_service.SYNC_DAYS_BACK):
         if full:
             await asyncio.to_thread(espn_service.sync_standings)
             await asyncio.to_thread(espn_service.recompute_scorers)
+        await asyncio.to_thread(uzb_service.tick)
         app['last_sync'] = time.time()
 
 async def handle_sync_live(request):
